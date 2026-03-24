@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0a0f1e">
+<title>帳簿AI — 自動仕訳システム</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Noto+Sans+JP:wght@400;500;700&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{
+  --bg:#0a0f1e;--s1:#0f1628;--s2:#141d35;--s3:#1a2340;
+  --border:#1e2d50;--border2:#2a3d6a;
+  --gold:#f0c040;--gold2:#e8a820;--teal:#00c9a0;--red:#ff5f6d;--blue:#4a9eff;
+  --text:#e8edf5;--muted:#6b7a99;--dim:#3a4560;
+  --font:'Playfair Display',serif;
+  --fontj:'Noto Sans JP',sans-serif;
+  --mono:'DM Mono',monospace;
+  --safe-bottom:env(safe-area-inset-bottom,0px);
+}
+html,body{min-height:100%;background:var(--bg);color:var(--text);font-family:var(--fontj);overflow-x:hidden}
+
+/* HEADER */
+header{background:var(--s1);border-bottom:0.5px solid var(--border);padding:0 20px;height:58px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50}
+.logo{display:flex;align-items:baseline;gap:8px}
+.logo-main{font-family:var(--font);font-size:22px;color:var(--gold)}
+.logo-sub{font-family:var(--mono);font-size:10px;letter-spacing:3px;color:var(--muted);text-transform:uppercase}
+.header-right{display:flex;align-items:center;gap:10px}
+.api-badge{font-family:var(--mono);font-size:10px;padding:5px 10px;border-radius:6px;border:0.5px solid var(--border2);color:var(--muted);display:flex;align-items:center;gap:5px}
+.api-dot{width:6px;height:6px;border-radius:50%;background:var(--dim)}
+.api-dot.on{background:var(--teal);box-shadow:0 0 6px var(--teal)}
+
+/* TABS */
+.tabs-nav{display:flex;background:var(--s1);border-bottom:0.5px solid var(--border);overflow-x:auto;-webkit-overflow-scrolling:touch}
+.tabs-nav::-webkit-scrollbar{display:none}
+.tnav{flex:1;min-width:80px;padding:14px 8px;font-family:var(--mono);font-size:11px;letter-spacing:1px;text-align:center;color:var(--muted);cursor:pointer;border:none;background:transparent;border-bottom:2px solid transparent;transition:all .2s;white-space:nowrap;text-transform:uppercase}
+.tnav.active{color:var(--gold);border-bottom-color:var(--gold)}
+
+/* PAGES */
+.page{display:none;padding:20px 16px 100px;max-width:900px;margin:0 auto}
+.page.active{display:block}
+
+/* SECTION TITLE */
+.sec-title{font-family:var(--mono);font-size:10px;letter-spacing:3px;color:var(--muted);text-transform:uppercase;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.sec-title::before{content:'';display:block;width:16px;height:0.5px;background:var(--gold)}
+
+/* UPLOAD ZONE */
+.upload-zone{border:1.5px dashed var(--border2);border-radius:16px;padding:40px 20px;text-align:center;cursor:pointer;transition:all .2s;margin-bottom:16px;position:relative;overflow:hidden;background:var(--s1)}
+.upload-zone:hover,.upload-zone.dragover{border-color:var(--gold);background:rgba(240,192,64,.04)}
+.upload-zone input{position:absolute;inset:0;opacity:0;cursor:pointer;font-size:100px}
+.upload-icon{font-size:36px;margin-bottom:12px}
+.upload-title{font-size:15px;font-weight:500;margin-bottom:6px}
+.upload-sub{font-size:12px;color:var(--muted);line-height:1.6}
+.upload-types{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-top:14px}
+.utype{font-family:var(--mono);font-size:10px;padding:4px 10px;border-radius:4px;background:var(--s2);border:0.5px solid var(--border2);color:var(--muted)}
+
+/* PREVIEW GRID */
+.preview-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:10px;margin-bottom:16px}
+.preview-item{position:relative;aspect-ratio:1;border-radius:10px;overflow:hidden;border:0.5px solid var(--border)}
+.preview-item img{width:100%;height:100%;object-fit:cover}
+.preview-del{position:absolute;top:4px;right:4px;width:22px;height:22px;border-radius:50%;background:rgba(0,0,0,.7);border:none;color:#fff;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+
+/* RUN BTN */
+.run-btn{width:100%;padding:16px;background:var(--gold);color:#000;font-family:var(--mono);font-size:13px;font-weight:500;letter-spacing:2px;text-transform:uppercase;border:none;border-radius:12px;cursor:pointer;transition:opacity .15s;margin-bottom:16px}
+.run-btn:hover{opacity:.88}
+.run-btn:disabled{opacity:.35;pointer-events:none}
+
+/* PROGRESS */
+.progress-wrap{background:var(--s1);border:0.5px solid var(--border);border-radius:12px;padding:16px;margin-bottom:16px;display:none}
+.progress-wrap.show{display:block}
+.progress-label{font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.progress-bar-bg{background:var(--s3);border-radius:4px;height:4px;overflow:hidden}
+.progress-bar{height:100%;background:var(--gold);border-radius:4px;transition:width .3s;width:0%}
+.progress-items{margin-top:12px;display:flex;flex-direction:column;gap:6px}
+.progress-item{font-size:12px;font-family:var(--mono);color:var(--muted);display:flex;align-items:center;gap:8px}
+.progress-item.done{color:var(--teal)}
+.progress-item.active{color:var(--gold)}
+.pi-dot{width:6px;height:6px;border-radius:50%;background:var(--dim);flex-shrink:0}
+.progress-item.done .pi-dot{background:var(--teal)}
+.progress-item.active .pi-dot{background:var(--gold);animation:blink 1s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
+
+/* RESULT TABLE */
+.result-wrap{background:var(--s1);border:0.5px solid var(--border);border-radius:14px;overflow:hidden;margin-bottom:16px}
+.result-header{padding:14px 16px;border-bottom:0.5px solid var(--border);display:flex;justify-content:space-between;align-items:center}
+.result-count{font-family:var(--mono);font-size:12px;color:var(--muted)}
+.result-actions{display:flex;gap:8px}
+.rbtn{padding:7px 14px;font-family:var(--mono);font-size:11px;letter-spacing:1px;border-radius:8px;cursor:pointer;border:0.5px solid var(--border2);background:transparent;color:var(--muted);transition:all .15s;text-transform:uppercase}
+.rbtn:hover{color:var(--text);border-color:var(--gold)}
+.rbtn.primary{background:var(--gold);color:#000;border-color:var(--gold)}
+.table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{width:100%;border-collapse:collapse;min-width:640px}
+th{background:var(--s2);padding:10px 12px;font-family:var(--mono);font-size:10px;letter-spacing:2px;color:var(--muted);text-align:left;text-transform:uppercase;white-space:nowrap;border-bottom:0.5px solid var(--border)}
+td{padding:11px 12px;font-size:13px;border-bottom:0.5px solid var(--border);vertical-align:top}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:rgba(240,192,64,.03)}
+.td-date{font-family:var(--mono);font-size:12px;color:var(--muted);white-space:nowrap}
+.td-amount{font-family:var(--mono);font-size:13px;font-weight:500;white-space:nowrap;text-align:right}
+.td-amount.income{color:var(--teal)}
+.td-amount.expense{color:var(--red)}
+.badge{font-size:10px;font-family:var(--mono);padding:3px 8px;border-radius:4px;white-space:nowrap}
+.badge-income{background:rgba(0,201,160,.12);color:var(--teal)}
+.badge-expense{background:rgba(255,95,109,.12);color:var(--red)}
+.td-edit{background:transparent;border:none;color:var(--dim);cursor:pointer;font-size:14px;padding:2px 6px;border-radius:4px;transition:color .15s}
+.td-edit:hover{color:var(--gold)}
+.td-del{background:transparent;border:none;color:var(--dim);cursor:pointer;font-size:14px;padding:2px 6px;border-radius:4px;transition:color .15s}
+.td-del:hover{color:var(--red)}
+
+/* SUMMARY CARDS */
+.summary-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:20px}
+.sum-card{background:var(--s1);border:0.5px solid var(--border);border-radius:12px;padding:14px 12px}
+.sum-label{font-family:var(--mono);font-size:10px;letter-spacing:1px;color:var(--muted);text-transform:uppercase;margin-bottom:8px}
+.sum-val{font-family:var(--mono);font-size:18px;font-weight:500}
+.sum-val.income{color:var(--teal)}
+.sum-val.expense{color:var(--red)}
+.sum-val.profit{color:var(--gold)}
+
+/* CHART */
+.chart-wrap{background:var(--s1);border:0.5px solid var(--border);border-radius:14px;padding:16px;margin-bottom:16px}
+.chart-title{font-family:var(--mono);font-size:11px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-bottom:16px}
+.bar-chart{display:flex;flex-direction:column;gap:8px}
+.bar-row{display:flex;align-items:center;gap:10px}
+.bar-label{font-family:var(--mono);font-size:11px;color:var(--muted);width:60px;flex-shrink:0;text-align:right}
+.bar-bg{flex:1;background:var(--s3);border-radius:3px;height:20px;overflow:hidden;position:relative}
+.bar-fill{height:100%;border-radius:3px;transition:width .4s}
+.bar-fill.income{background:var(--teal)}
+.bar-fill.expense{background:var(--red)}
+.bar-val{font-family:var(--mono);font-size:11px;color:var(--muted);width:80px;flex-shrink:0;text-align:right}
+
+/* SETTINGS */
+.card{background:var(--s1);border:0.5px solid var(--border);border-radius:14px;padding:18px;margin-bottom:14px}
+.field{margin-bottom:14px}
+.field:last-child{margin-bottom:0}
+.field label{font-family:var(--mono);font-size:10px;letter-spacing:2px;color:var(--muted);display:block;margin-bottom:8px;text-transform:uppercase}
+.field input,.field select{width:100%;background:var(--s2);border:0.5px solid var(--border);color:var(--text);padding:12px 14px;font-size:15px;font-family:var(--fontj);border-radius:10px;outline:none;appearance:none;-webkit-appearance:none;transition:border .2s}
+.field input:focus,.field select:focus{border-color:var(--border2)}
+.field input[type=password]{font-family:var(--mono);letter-spacing:3px;font-size:13px}
+.select-wrap{position:relative}
+.select-wrap::after{content:'▾';position:absolute;right:14px;top:50%;transform:translateY(-50%);color:var(--muted);pointer-events:none}
+
+/* EMPTY */
+.empty{text-align:center;padding:48px 16px;color:var(--dim);font-family:var(--mono);font-size:12px;line-height:2}
+
+/* MODAL */
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;align-items:flex-end}
+.overlay.open{display:flex}
+.modal{background:var(--s1);border-radius:20px 20px 0 0;border-top:0.5px solid var(--border2);width:100%;padding:20px 20px calc(20px + var(--safe-bottom));max-height:90vh;overflow-y:auto}
+.modal-handle{width:36px;height:4px;background:var(--border2);border-radius:2px;margin:0 auto 16px}
+.modal-title{font-family:var(--font);font-size:20px;color:var(--gold);margin-bottom:20px}
+.modal-field{margin-bottom:14px}
+.modal-field label{font-family:var(--mono);font-size:10px;letter-spacing:2px;color:var(--muted);display:block;margin-bottom:7px;text-transform:uppercase}
+.modal-field input,.modal-field select{width:100%;background:var(--s2);border:0.5px solid var(--border);color:var(--text);padding:12px 14px;font-size:15px;font-family:var(--fontj);border-radius:10px;outline:none;appearance:none;-webkit-appearance:none}
+.modal-btns{display:flex;gap:10px;margin-top:20px}
+.mbtn{flex:1;padding:14px;font-family:var(--mono);font-size:12px;letter-spacing:1px;border-radius:10px;cursor:pointer;border:0.5px solid;text-transform:uppercase}
+.mbtn-save{background:var(--gold);color:#000;border-color:var(--gold)}
+.mbtn-cancel{background:transparent;color:var(--muted);border-color:var(--border2)}
+
+@media(min-width:640px){
+  .summary-grid{grid-template-columns:repeat(3,1fr)}
+  .page{padding:28px 24px 60px}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-main">帳簿AI</div>
+    <div class="logo-sub">Auto Journal</div>
+  </div>
+  <div class="header-right">
+    <div class="api-badge">
+      <div class="api-dot" id="apiDot"></div>
+      <span id="apiStatus">未設定</span>
+    </div>
+  </div>
+</header>
+
+<div class="tabs-nav">
+  <button class="tnav active" onclick="showPage('upload',this)">仕訳入力</button>
+  <button class="tnav" onclick="showPage('ledger',this)">帳簿</button>
+  <button class="tnav" onclick="showPage('dashboard',this)">集計</button>
+  <button class="tnav" onclick="showPage('settings',this)">設定</button>
+</div>
+
+<!-- 仕訳入力 -->
+<div class="page active" id="page-upload">
+  <div class="sec-title">スクショをアップロード</div>
+
+  <div class="upload-zone" id="uploadZone">
+    <input type="file" accept="image/*" multiple id="fileInput" onchange="handleFiles(this.files)">
+    <div class="upload-icon">📸</div>
+    <div class="upload-title">タップして画像を選択</div>
+    <div class="upload-sub">レシート・明細・領収書など<br>複数枚まとめてOK</div>
+    <div class="upload-types">
+      <span class="utype">レシート</span>
+      <span class="utype">銀行明細</span>
+      <span class="utype">クレカ明細</span>
+      <span class="utype">振込明細</span>
+      <span class="utype">Amazon</span>
+      <span class="utype">管理アプリ</span>
+    </div>
+  </div>
+
+  <div class="preview-grid" id="previewGrid"></div>
+
+  <div class="progress-wrap" id="progressWrap">
+    <div class="progress-label">
+      <span id="progressLabel">AIが読み取り中...</span>
+    </div>
+    <div class="progress-bar-bg"><div class="progress-bar" id="progressBar"></div></div>
+    <div class="progress-items" id="progressItems"></div>
+  </div>
+
+  <button class="run-btn" id="runBtn" onclick="runOCR()" style="display:none">AIで自動仕訳する →</button>
+
+  <div id="resultWrap" style="display:none">
+    <div class="sec-title" style="margin-top:8px">読み取り結果</div>
+    <div class="result-wrap">
+      <div class="result-header">
+        <div class="result-count" id="resultCount">0件</div>
+        <div class="result-actions">
+          <button class="rbtn" onclick="clearResults()">クリア</button>
+          <button class="rbtn primary" onclick="addAllToLedger()">帳簿に追加</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>日付</th>
+              <th>内容</th>
+              <th>勘定科目</th>
+              <th>区分</th>
+              <th>金額</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="resultBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 帳簿 -->
+<div class="page" id="page-ledger">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+    <div class="sec-title" style="margin-bottom:0">仕訳帳</div>
+    <div style="display:flex;gap:8px">
+      <button class="rbtn" onclick="exportCSV()">CSV</button>
+      <button class="rbtn primary" onclick="openAddModal()">＋ 手動追加</button>
+    </div>
+  </div>
+
+  <div style="margin-bottom:14px;display:flex;gap:8px">
+    <div class="select-wrap" style="flex:1">
+      <select id="filterMonth" onchange="renderLedger()" style="background:var(--s1);border:0.5px solid var(--border);color:var(--text);padding:10px 14px;font-size:13px;font-family:var(--fontj);border-radius:10px;width:100%;outline:none;appearance:none;-webkit-appearance:none">
+        <option value="">すべての月</option>
+      </select>
+    </div>
+    <div class="select-wrap" style="flex:1">
+      <select id="filterType" onchange="renderLedger()" style="background:var(--s1);border:0.5px solid var(--border);color:var(--text);padding:10px 14px;font-size:13px;font-family:var(--fontj);border-radius:10px;width:100%;outline:none;appearance:none;-webkit-appearance:none">
+        <option value="">収支すべて</option>
+        <option value="income">収入のみ</option>
+        <option value="expense">支出のみ</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="result-wrap">
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>日付</th>
+            <th>内容</th>
+            <th>勘定科目</th>
+            <th>区分</th>
+            <th>金額</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="ledgerBody"></tbody>
+      </table>
+    </div>
+  </div>
+  <div class="empty" id="ledgerEmpty" style="display:none">まだ仕訳データがありません<br>スクショをアップロードして追加してください</div>
+</div>
+
+<!-- 集計 -->
+<div class="page" id="page-dashboard">
+  <div class="sec-title">月次集計</div>
+  <div class="summary-grid" id="summaryGrid">
+    <div class="sum-card"><div class="sum-label">収入合計</div><div class="sum-val income" id="totalIncome">¥0</div></div>
+    <div class="sum-card"><div class="sum-label">支出合計</div><div class="sum-val expense" id="totalExpense">¥0</div></div>
+    <div class="sum-card"><div class="sum-label">収支差額</div><div class="sum-val profit" id="totalProfit">¥0</div></div>
+  </div>
+
+  <div class="chart-wrap">
+    <div class="chart-title">月別推移</div>
+    <div class="bar-chart" id="barChart"></div>
+  </div>
+
+  <div class="chart-wrap">
+    <div class="chart-title">勘定科目別支出</div>
+    <div class="bar-chart" id="categoryChart"></div>
+  </div>
+</div>
+
+<!-- 設定 -->
+<div class="page" id="page-settings">
+  <div class="sec-title">API設定</div>
+  <div class="card">
+    <div class="field">
+      <label>Anthropic APIキー</label>
+      <input type="password" id="apiKey" placeholder="sk-ant-api03-..." oninput="saveApiKey()" autocomplete="off" spellcheck="false">
+    </div>
+    <div style="font-size:11px;color:var(--dim);font-family:var(--mono);line-height:1.7">
+      console.anthropic.com で取得<br>このキーはブラウザのみに保存されます
+    </div>
+  </div>
+
+  <div class="sec-title" style="margin-top:8px">データ管理</div>
+  <div class="card">
+    <div style="font-size:13px;color:var(--muted);margin-bottom:16px;line-height:1.7">
+      現在 <span id="dataCount" style="color:var(--text);font-family:var(--mono)">0</span> 件のデータが保存されています
+    </div>
+    <button class="rbtn" onclick="exportCSV()" style="margin-right:8px">CSVエクスポート</button>
+    <button class="rbtn" onclick="clearAllData()" style="color:var(--red);border-color:var(--red)">全データ削除</button>
+  </div>
+</div>
+
+<!-- 編集モーダル -->
+<div class="overlay" id="editModal" onclick="closeEditModal(event)">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="modalTitle">仕訳を編集</div>
+    <input type="hidden" id="editId">
+    <div class="modal-field">
+      <label>日付</label>
+      <input type="date" id="editDate">
+    </div>
+    <div class="modal-field">
+      <label>内容・摘要</label>
+      <input type="text" id="editDesc" placeholder="例: コンビニ 食料品">
+    </div>
+    <div class="modal-field">
+      <label>勘定科目</label>
+      <div class="select-wrap">
+        <select id="editCategory"></select>
+      </div>
+    </div>
+    <div class="modal-field">
+      <label>区分</label>
+      <div class="select-wrap">
+        <select id="editType">
+          <option value="expense">支出</option>
+          <option value="income">収入</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-field">
+      <label>金額（税込）</label>
+      <input type="number" id="editAmount" placeholder="1000">
+    </div>
+    <div class="modal-btns">
+      <button class="mbtn mbtn-cancel" onclick="document.getElementById('editModal').classList.remove('open')">キャンセル</button>
+      <button class="mbtn mbtn-save" onclick="saveEdit()">保存</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ========== CATEGORIES ==========
+const EXPENSE_CATS = ['消耗品費','通信費','交通費','接待交際費','広告宣伝費','地代家賃','水道光熱費','外注費','給料賃金','雑費','研修費','新聞図書費','保険料','租税公課','修繕費','車両費','荷造運賃'];
+const INCOME_CATS = ['売上高','受取手数料','雑収入','受取利息'];
+const ALL_CATS = [...INCOME_CATS, ...EXPENSE_CATS];
+
+// ========== STATE ==========
+let pendingResults = [];
+let editingId = null;
+
+// ========== INIT ==========
+function init() {
+  loadApiKey();
+  renderLedger();
+  renderDashboard();
+  updateDataCount();
+  populateCategorySelect();
+  populateMonthFilter();
+}
+
+function populateCategorySelect() {
+  const sel = document.getElementById('editCategory');
+  sel.innerHTML = ALL_CATS.map(c => `<option value="${c}">${c}</option>`).join('');
+}
+
+// ========== API KEY ==========
+function saveApiKey() {
+  localStorage.setItem('keihi_apikey', document.getElementById('apiKey').value);
+  updateApiStatus();
+}
+function loadApiKey() {
+  const k = localStorage.getItem('keihi_apikey') || '';
+  document.getElementById('apiKey').value = k;
+  updateApiStatus();
+}
+function updateApiStatus() {
+  const k = document.getElementById('apiKey').value;
+  const ok = k.startsWith('sk-ant');
+  document.getElementById('apiDot').className = 'api-dot' + (ok ? ' on' : '');
+  document.getElementById('apiStatus').textContent = ok ? 'API接続済み' : '未設定';
+}
+
+// ========== FILE UPLOAD ==========
+function handleFiles(files) {
+  const grid = document.getElementById('previewGrid');
+  [...files].forEach(file => {
+    if (!file.type.startsWith('image/')) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+      const div = document.createElement('div');
+      div.className = 'preview-item';
+      div.dataset.src = e.target.result;
+      div.dataset.type = file.type;
+      div.innerHTML = `<img src="${e.target.result}"><button class="preview-del" onclick="this.parentElement.remove();checkFiles()">×</button>`;
+      grid.appendChild(div);
+      checkFiles();
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function checkFiles() {
+  const count = document.querySelectorAll('.preview-item').length;
+  document.getElementById('runBtn').style.display = count > 0 ? 'block' : 'none';
+}
+
+// ========== OCR + JISHIWAKE ==========
+async function runOCR() {
+  const key = localStorage.getItem('keihi_apikey');
+  if (!key || !key.startsWith('sk-ant')) {
+    alert('設定タブでAPIキーを入力してください');
+    showPage('settings', document.querySelectorAll('.tnav')[3]);
+    return;
+  }
+  const items = [...document.querySelectorAll('.preview-item')];
+  if (!items.length) return;
+
+  const btn = document.getElementById('runBtn');
+  btn.disabled = true;
+  btn.textContent = '読み取り中...';
+
+  const pw = document.getElementById('progressWrap');
+  pw.classList.add('show');
+  const pi = document.getElementById('progressItems');
+  pi.innerHTML = items.map((_, i) => `<div class="progress-item" id="pitem${i}"><div class="pi-dot"></div>画像 ${i+1} を解析中...</div>`).join('');
+
+  pendingResults = [];
+  const total = items.length;
+
+  for (let i = 0; i < items.length; i++) {
+    document.getElementById(`pitem${i}`).className = 'progress-item active';
+    document.getElementById('progressLabel').textContent = `${i+1} / ${total} 枚を読み取り中...`;
+    document.getElementById('progressBar').style.width = `${Math.round((i / total) * 100)}%`;
+
+    try {
+      const b64 = items[i].dataset.src.split(',')[1];
+      const mediaType = items[i].dataset.type || 'image/jpeg';
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 1000,
+          system: `あなたは日本の個人事業主向け会計AIです。画像からレシート・明細・領収書の情報を読み取り、仕訳データをJSON配列で返してください。
+
+返却形式（JSONのみ・他のテキスト不要）:
+[{"date":"YYYY-MM-DD","description":"内容・店名","category":"勘定科目","type":"expense or income","amount":金額数値,"memo":"補足"}]
+
+勘定科目の選択肢: ${ALL_CATS.join('、')}
+- typeはexpense（支出）またはincome（収入）
+- 金額は税込の数値のみ（円記号なし）
+- 日付が不明な場合は今日の日付
+- 1枚の画像に複数の取引がある場合は複数要素で返す
+- 読み取れない場合は空配列[]を返す`,
+          messages: [{
+            role: 'user',
+            content: [{type:'image', source:{type:'base64', media_type: mediaType, data: b64}},
+                      {type:'text', text:'この画像から仕訳データを抽出してください。'}]
+          }]
+        })
+      });
+      const data = await res.json();
+      const text = data.content?.map(b => b.text || '').join('') || '[]';
+      const clean = text.replace(/```json|```/g, '').trim();
+      const parsed = JSON.parse(clean);
+      parsed.forEach(r => {
+        r.id = Date.now() + Math.random();
+        pendingResults.push(r);
+      });
+      document.getElementById(`pitem${i}`).className = 'progress-item done';
+      document.getElementById(`pitem${i}`).innerHTML = `<div class="pi-dot"></div>画像 ${i+1} — ${parsed.length}件取得`;
+    } catch(e) {
+      document.getElementById(`pitem${i}`).className = 'progress-item';
+      document.getElementById(`pitem${i}`).innerHTML = `<div class="pi-dot"></div>画像 ${i+1} — 読み取り失敗`;
+    }
+  }
+
+  document.getElementById('progressBar').style.width = '100%';
+  document.getElementById('progressLabel').textContent = `完了！${pendingResults.length}件の仕訳を取得`;
+  renderPendingResults();
+
+  btn.disabled = false;
+  btn.textContent = 'AIで自動仕訳する →';
+}
+
+function renderPendingResults() {
+  const body = document.getElementById('resultBody');
+  const wrap = document.getElementById('resultWrap');
+  if (!pendingResults.length) { wrap.style.display = 'none'; return; }
+  wrap.style.display = 'block';
+  document.getElementById('resultCount').textContent = `${pendingResults.length}件`;
+  body.innerHTML = pendingResults.map(r => `
+    <tr>
+      <td class="td-date">${r.date || '—'}</td>
+      <td>${r.description || '—'}</td>
+      <td><span style="font-size:12px">${r.category || '—'}</span></td>
+      <td><span class="badge ${r.type === 'income' ? 'badge-income' : 'badge-expense'}">${r.type === 'income' ? '収入' : '支出'}</span></td>
+      <td class="td-amount ${r.type === 'income' ? 'income' : 'expense'}">¥${Number(r.amount).toLocaleString()}</td>
+      <td><button class="td-del" onclick="removePending('${r.id}')">×</button></td>
+    </tr>
+  `).join('');
+}
+
+function removePending(id) {
+  pendingResults = pendingResults.filter(r => String(r.id) !== String(id));
+  renderPendingResults();
+}
+
+function clearResults() {
+  pendingResults = [];
+  document.getElementById('resultWrap').style.display = 'none';
+  document.getElementById('previewGrid').innerHTML = '';
+  document.getElementById('progressWrap').classList.remove('show');
+  document.getElementById('runBtn').style.display = 'none';
+}
+
+function addAllToLedger() {
+  const ledger = getLedger();
+  pendingResults.forEach(r => ledger.push({...r, id: Date.now() + Math.random()}));
+  saveLedger(ledger);
+  clearResults();
+  populateMonthFilter();
+  renderDashboard();
+  updateDataCount();
+  showPage('ledger', document.querySelectorAll('.tnav')[1]);
+}
+
+// ========== LEDGER ==========
+function getLedger() { return JSON.parse(localStorage.getItem('keihi_ledger') || '[]'); }
+function saveLedger(data) { localStorage.setItem('keihi_ledger', JSON.stringify(data)); }
+
+function renderLedger() {
+  const ledger = getLedger();
+  const month = document.getElementById('filterMonth').value;
+  const type = document.getElementById('filterType').value;
+  let filtered = ledger;
+  if (month) filtered = filtered.filter(r => r.date && r.date.startsWith(month));
+  if (type) filtered = filtered.filter(r => r.type === type);
+  filtered.sort((a,b) => (b.date || '').localeCompare(a.date || ''));
+
+  const body = document.getElementById('ledgerBody');
+  const empty = document.getElementById('ledgerEmpty');
+  if (!filtered.length) {
+    body.innerHTML = '';
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+  body.innerHTML = filtered.map(r => `
+    <tr>
+      <td class="td-date">${r.date || '—'}</td>
+      <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.description || '—'}</td>
+      <td><span style="font-size:12px">${r.category || '—'}</span></td>
+      <td><span class="badge ${r.type === 'income' ? 'badge-income' : 'badge-expense'}">${r.type === 'income' ? '収入' : '支出'}</span></td>
+      <td class="td-amount ${r.type === 'income' ? 'income' : 'expense'}">¥${Number(r.amount).toLocaleString()}</td>
+      <td style="white-space:nowrap">
+        <button class="td-edit" onclick="openEditModal('${r.id}')">✎</button>
+        <button class="td-del" onclick="deleteEntry('${r.id}')">×</button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function deleteEntry(id) {
+  if (!confirm('この仕訳を削除しますか？')) return;
+  saveLedger(getLedger().filter(r => String(r.id) !== String(id)));
+  renderLedger();
+  renderDashboard();
+  updateDataCount();
+}
+
+// ========== DASHBOARD ==========
+function renderDashboard() {
+  const ledger = getLedger();
+  const income = ledger.filter(r => r.type === 'income').reduce((s,r) => s + Number(r.amount), 0);
+  const expense = ledger.filter(r => r.type === 'expense').reduce((s,r) => s + Number(r.amount), 0);
+  const profit = income - expense;
+  document.getElementById('totalIncome').textContent = '¥' + income.toLocaleString();
+  document.getElementById('totalExpense').textContent = '¥' + expense.toLocaleString();
+  document.getElementById('totalProfit').textContent = (profit >= 0 ? '+' : '') + '¥' + profit.toLocaleString();
+  document.getElementById('totalProfit').style.color = profit >= 0 ? 'var(--teal)' : 'var(--red)';
+
+  // 月別バーチャート
+  const monthMap = {};
+  ledger.forEach(r => {
+    if (!r.date) return;
+    const m = r.date.substring(0, 7);
+    if (!monthMap[m]) monthMap[m] = {income:0, expense:0};
+    monthMap[m][r.type] += Number(r.amount);
+  });
+  const months = Object.keys(monthMap).sort().slice(-6);
+  const maxVal = Math.max(...months.map(m => Math.max(monthMap[m].income, monthMap[m].expense)), 1);
+  document.getElementById('barChart').innerHTML = months.length ? months.map(m => `
+    <div style="margin-bottom:8px">
+      <div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-bottom:4px">${m}</div>
+      <div class="bar-row"><div class="bar-label" style="font-size:10px;color:var(--teal)">収入</div><div class="bar-bg"><div class="bar-fill income" style="width:${Math.round(monthMap[m].income/maxVal*100)}%"></div></div><div class="bar-val">¥${monthMap[m].income.toLocaleString()}</div></div>
+      <div class="bar-row" style="margin-top:4px"><div class="bar-label" style="font-size:10px;color:var(--red)">支出</div><div class="bar-bg"><div class="bar-fill expense" style="width:${Math.round(monthMap[m].expense/maxVal*100)}%"></div></div><div class="bar-val">¥${monthMap[m].expense.toLocaleString()}</div></div>
+    </div>
+  `).join('') : '<div class="empty">データがありません</div>';
+
+  // 勘定科目別
+  const catMap = {};
+  ledger.filter(r => r.type === 'expense').forEach(r => {
+    catMap[r.category] = (catMap[r.category] || 0) + Number(r.amount);
+  });
+  const cats = Object.entries(catMap).sort((a,b) => b[1]-a[1]).slice(0,8);
+  const maxCat = cats.length ? cats[0][1] : 1;
+  document.getElementById('categoryChart').innerHTML = cats.length ? cats.map(([cat, val]) => `
+    <div class="bar-row">
+      <div class="bar-label" style="width:80px;font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${cat}</div>
+      <div class="bar-bg"><div class="bar-fill expense" style="width:${Math.round(val/maxCat*100)}%"></div></div>
+      <div class="bar-val">¥${val.toLocaleString()}</div>
+    </div>
+  `).join('') : '<div class="empty">データがありません</div>';
+}
+
+// ========== EDIT MODAL ==========
+function openAddModal() {
+  editingId = null;
+  document.getElementById('modalTitle').textContent = '仕訳を追加';
+  document.getElementById('editId').value = '';
+  document.getElementById('editDate').value = new Date().toISOString().split('T')[0];
+  document.getElementById('editDesc').value = '';
+  document.getElementById('editAmount').value = '';
+  document.getElementById('editType').value = 'expense';
+  document.getElementById('editModal').classList.add('open');
+}
+function openEditModal(id) {
+  const entry = getLedger().find(r => String(r.id) === String(id));
+  if (!entry) return;
+  editingId = id;
+  document.getElementById('modalTitle').textContent = '仕訳を編集';
+  document.getElementById('editId').value = id;
+  document.getElementById('editDate').value = entry.date || '';
+  document.getElementById('editDesc').value = entry.description || '';
+  document.getElementById('editCategory').value = entry.category || EXPENSE_CATS[0];
+  document.getElementById('editType').value = entry.type || 'expense';
+  document.getElementById('editAmount').value = entry.amount || '';
+  document.getElementById('editModal').classList.add('open');
+}
+function saveEdit() {
+  const ledger = getLedger();
+  const entry = {
+    id: editingId || Date.now() + Math.random(),
+    date: document.getElementById('editDate').value,
+    description: document.getElementById('editDesc').value,
+    category: document.getElementById('editCategory').value,
+    type: document.getElementById('editType').value,
+    amount: Number(document.getElementById('editAmount').value) || 0,
+  };
+  if (editingId) {
+    const idx = ledger.findIndex(r => String(r.id) === String(editingId));
+    if (idx >= 0) ledger[idx] = entry;
+  } else {
+    ledger.push(entry);
+  }
+  saveLedger(ledger);
+  document.getElementById('editModal').classList.remove('open');
+  renderLedger();
+  renderDashboard();
+  updateDataCount();
+  populateMonthFilter();
+}
+function closeEditModal(e) { if (e.target.id === 'editModal') document.getElementById('editModal').classList.remove('open'); }
+
+// ========== MONTH FILTER ==========
+function populateMonthFilter() {
+  const ledger = getLedger();
+  const months = [...new Set(ledger.map(r => r.date?.substring(0,7)).filter(Boolean))].sort().reverse();
+  const sel = document.getElementById('filterMonth');
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">すべての月</option>' + months.map(m => `<option value="${m}">${m}</option>`).join('');
+  if (months.includes(cur)) sel.value = cur;
+}
+
+// ========== CSV EXPORT ==========
+function exportCSV() {
+  const ledger = getLedger();
+  if (!ledger.length) { alert('データがありません'); return; }
+  const header = ['日付','内容','勘定科目','区分','金額','メモ'];
+  const rows = ledger.sort((a,b) => (a.date||'').localeCompare(b.date||'')).map(r => [
+    r.date || '', r.description || '', r.category || '',
+    r.type === 'income' ? '収入' : '支出',
+    r.amount || 0, r.memo || ''
+  ]);
+  const csv = [header, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob(['\uFEFF' + csv], {type:'text/csv;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `帳簿_${new Date().toISOString().split('T')[0]}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ========== UTILS ==========
+function showPage(id, el) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tnav').forEach(t => t.classList.remove('active'));
+  document.getElementById('page-' + id).classList.add('active');
+  el.classList.add('active');
+  if (id === 'ledger') { renderLedger(); populateMonthFilter(); }
+  if (id === 'dashboard') renderDashboard();
+  if (id === 'settings') updateDataCount();
+}
+function updateDataCount() {
+  document.getElementById('dataCount').textContent = getLedger().length;
+}
+function clearAllData() {
+  if (!confirm('全データを削除しますか？この操作は元に戻せません。')) return;
+  localStorage.removeItem('keihi_ledger');
+  renderLedger();
+  renderDashboard();
+  updateDataCount();
+}
+
+// drag & drop
+const zone = document.getElementById('uploadZone');
+zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('dragover'); });
+zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+zone.addEventListener('drop', e => { e.preventDefault(); zone.classList.remove('dragover'); handleFiles(e.dataTransfer.files); });
+
+init();
+</script>
+</body>
+</html>
